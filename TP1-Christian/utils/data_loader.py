@@ -60,8 +60,6 @@ class DataLoader:
         tweet = tweet.copy(deep=True)
         tweet['dim'] = ['valence'] * tweet.shape[0]
         tweet['class'] = classes[tweet['class']]
-        tweet['text'] = tweet['text'].str.encode(encoding='unicode')
         tweet = tweet[['id', 'text', 'dim', 'class']]
         tweet.columns = ['ID', 'Tweet', 'Affect Dimension', 'Intensify Class']
-        with open(path, mode="bw") as file:
-            tweet.to_csv(file, sep='\t', index=False)
+        tweet.to_csv(path, sep='\t', index=False)
