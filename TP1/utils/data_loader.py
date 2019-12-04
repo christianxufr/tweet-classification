@@ -52,13 +52,13 @@ class DataLoader:
 
     @staticmethod
     def write_tweet_v2(tweet: pd.DataFrame, path: str):
-        classes = np.array(['-3: very negative emotional state can be inferred',
-                            '-2: moderately negative emotional state can be inferred',
-                            '-1: slightly negative emotional state can be inferred',
-                            '0: neutral or mixed emotional state can be inferred',
+        classes = np.array(['0: neutral or mixed emotional state can be inferred',
                             '1: slightly positive emotional state can be inferred',
                             '2: moderately positive emotional state can be inferred',
                             '3: very positive emotional state can be inferred',
+                            '-3: very negative emotional state can be inferred',
+                            '-2: moderately negative emotional state can be inferred',
+                            '-1: slightly negative emotional state can be inferred',
                             ])
         tweet = tweet.copy(deep=True)
         tweet['dim'] = ['valence'] * tweet.shape[0]
