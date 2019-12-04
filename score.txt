@@ -1,0 +1,4 @@
+Pearson correlation between predict.csv and 2018-Valence-oc-En-test-gold.txt:	0.6766676953170128
+Pearson correlation for some emotions between predict.csv and 2018-Valence-oc-En-test-gold.txt:	0.7486624271865733
+Weighted quadratic Kappa between predict.csv and 2018-Valence-oc-En-test-gold.txt:	0.6755777378799408
+Weighted quadratic Kappa for some emotions between predict.csv and 2018-Valence-oc-En-test-gold.txt:	0.7471099736163676
