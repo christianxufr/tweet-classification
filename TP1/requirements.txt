@@ -1,0 +1,9 @@
+tensorflow==2.0.0
+scikit-learn
+pandas
+numpy
+matplotlib
+nltk
+gensim
+unidecode
+git+https://github.com/erikavaris/tokenizer.git
