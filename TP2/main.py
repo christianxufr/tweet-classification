@@ -1,103 +1,62 @@
-from utils.data_loader import DataLoader
-from text_to_vec import TextToVec
+from keras.utils import to_categorical
+from keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
-from sklearn.utils import shuffle
-from utils.visualize import Visualize
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import SGD
-from utils.saving import Saving
-from preprocess import Preprocess
 import numpy as np
-import pandas as pd
-from models import *
+
+from embedding import Embedding
+from preprocess import Preprocess
+from model import CustomModel
+from Metrics import evaluation
 
 
-def generate_text_preprocessing(data_loader, preprocess: Preprocess):
-    data = data_loader.load_tweet_v2(data_loader.train_7_v2_path) \
-        .append(data_loader.load_tweet_v2(data_loader.val_7_v2_path)) \
-        .append(data_loader.load_tweet(data_loader.train_3_path)) \
-        .append(data_loader.load_tweet(data_loader.train_7_path))
+def get_sequences(texts, sequence_length, tokenizer):
+    message_first = pad_sequences(tokenizer.texts_to_sequences(texts[:, 0]), sequence_length)
+    message_second = pad_sequences(tokenizer.texts_to_sequences(texts[:, 1]), sequence_length)
+    message_third = pad_sequences(tokenizer.texts_to_sequences(texts[:, 2]), sequence_length)
+    return message_first, message_second, message_third
 
-    vocab = data['text'].apply(preprocess.text_standardization)
+def main(model_num=1):
 
-    text_processing = TextToVec()
-    text_processing.fit(data_loader, vocab, 300)
-    text_processing.save("save/tp-all-300.save")
+    preprocess = Preprocess()
 
+    texts_train, labels_train = preprocess.preprocessData('../projet2/train.txt', mode="train")
+    texts_dev, labels_dev = preprocess.preprocessData('../projet2/dev.txt', mode="train")
 
-def train(model, model_name: str, X_train, X_val, y_train, y_val,
-          saving: Saving):
+    MAX_SEQUENCE_LENGTH = 24
+    LSTM_DIM = 64
+    HIDDEN_LAYER_DIM = 30
+    NUM_CLASSES = 4
+    GAUSSIAN_NOISE = 0.1
+    DROPOUT = 0.2
+    DROPOUT_LSTM = 0.2
+    BATCH_SIZE = 200
 
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='adam',
-                  metrics=['acc'],
-                  )
+    X_train, X_val, y_train, y_val = train_test_split(texts_train, labels_train, test_size=0.2, random_state=42)
+
+    labels_categorical_train = to_categorical(np.asarray(y_train))
+    labels_categorical_val = to_categorical(np.asarray(y_val))
+    labels_categorical_dev = to_categorical(np.asarray(labels_dev))
+
+    embedding = Embedding('../projet2/emosense.300d.txt')
+    embeddings = embedding.getMatrix()
+    tokenizer = embedding.getTokenizer()
+
+    message_first_message_train, message_second_message_train, message_third_message_train = get_sequences(X_train, MAX_SEQUENCE_LENGTH, tokenizer)
+    message_first_message_val, message_second_message_val, message_third_message_val = get_sequences(X_val, MAX_SEQUENCE_LENGTH, tokenizer)
+    message_first_message_dev, message_second_message_dev, message_third_message_dev = get_sequences(texts_dev, MAX_SEQUENCE_LENGTH, tokenizer)
+    
+
+    model = CustomModel(model_num)
+    model.build(embeddings, MAX_SEQUENCE_LENGTH, LSTM_DIM, HIDDEN_LAYER_DIM, NUM_CLASSES, 
+               noise=GAUSSIAN_NOISE, dropout_lstm=DROPOUT_LSTM, dropout=DROPOUT)
     model.summary()
-    history = model.fit(X_train, y_train,
-                        validation_data=(X_val, y_val),
-                        epochs=25,
-                        batch_size=100,
-                        callbacks=[*saving.get_callbacks(model_name,
-                                                       tensorboard=False,
-                                                       model_checkpoint=False),])
-                                   #EarlyStopping(monitor='val_loss')])
-    Visualize.plot_history(history.history, output="/tmp")
-    return history
-
-
-def preprocessing(data, preprocess, text2vec, output_dim = None):
-    texts = data["text"].values
-    texts = np.vectorize(preprocess.text_standardization)(texts)
-    texts = text2vec.sequence_texts(texts)
-    if output_dim is not None:
-        label = to_categorical(data["class"], output_dim)
-        return texts, label
-    return texts, None
-
-
-def main(data_loader: DataLoader, saving: Saving, preprocess: Preprocess, text2vec: TextToVec):
-    train_7_v2 = data_loader.load_tweet_v2(data_loader.train_7_v2_path)
-    val_7_v2 = data_loader.load_tweet_v2(data_loader.val_7_v2_path)
-    train_3 = data_loader.load_tweet(data_loader.train_3_path)
-    train_7 = data_loader.load_tweet(data_loader.train_7_path)
-
-    texts, labels = preprocessing(train_7_v2, preprocess, text2vec, 7)
-    val, vlabels = preprocessing(val_7_v2, preprocess, text2vec, 7)
-    #texts, labels = shuffle(texts, labels)
-
-    #X_train, X_val, y_train, y_val = train_test_split(texts, labels, test_size=0.2)
-
-
-    embedding_layer = text2vec.get_embedding_layer(trainable=False)
-
-    model3, model3_name = model3_gru(embedding_layer, saving)
-
-    model3 = saving.load_model(model3_name)
-
-    model, model7_name = model7(model3, saving, trainable=False)
-
-    train(model, model7_name, texts, val, labels, vlabels, saving)
-    saving.save_model(model, model7_name, override=True)
-
-    #model, model_name = model3_gru(embedding_layer, saving)
-    #train(model, model_name, train_3, saving, preprocess, text2vec)
-
-
-def predict(data_loader: DataLoader, saving: Saving, preprocess: Preprocess, text2vec: TextToVec):
-    model = saving.load_model("model7")
-    test_data = data_loader.load_tweet_v2(data_loader.val_7_v2_path)
-    texts, _ = preprocessing(test_data, preprocess, text2vec, 7)
-    test_data["class"] = np.argmax(model.predict(texts), axis=1) - 3
-    data_loader.write_tweet_v2(test_data, "predict.csv")
-
+    history = model.train(message_first_message_train, message_second_message_train, message_third_message_train,
+                    labels_categorical_train, message_first_message_val, message_second_message_val, message_third_message_val,
+                    labels_categorical_val)
+                    
+    y_pred = model.predict([message_first_message_dev, message_second_message_dev, message_third_message_dev])
+    #evaluation(y_pred, labels_categorical_dev)
 
 if __name__ == "__main__":
-    data_loader = DataLoader("../data") #"/home/epita/cardamin/drive-reader/result")
-    saving = Saving(directory="results")
-    preprocess = Preprocess(data_loader)
-    text2vec = TextToVec.load("save/tp-all-300.save")
-    #main(data_loader, saving, preprocess, text2vec)
-    predict(data_loader, saving, preprocess, text2vec)
-    #generate_text_preprocessing(data_loader, preprocess)
+    main()
 

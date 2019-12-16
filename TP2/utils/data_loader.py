@@ -5,7 +5,7 @@ import numpy as np
 
 class DataLoader:
     def __init__(self):
-        self.root = './projet2'
+        self.root = '../projet2'
         self.train_path = os.path.join(self.root, "train.txt")
         self.eval_path = os.path.join(self.root, "dev.txt")
         self.datastories_path = os.path.join(self.root, "datastories.twitter.100d.txt")
